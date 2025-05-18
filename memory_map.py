@@ -36,7 +36,7 @@ class MemoryMap:
         self.pointers: dict[int, Pointer] = {}
     def add_pointer(self, pointer: Pointer):
         self.pointers[self.__pointer_count] = pointer
-        self.pointer_count =+ 1
+        self.pointer_count += 1
         return 0
     def delete_pointer(self, pointer_id: int):
         del self.pointers[pointer_id]
