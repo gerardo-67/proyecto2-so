@@ -71,7 +71,7 @@ def processLine(line):
 
 #Lee el archivo de instrucciones y manda cada línea a la función processLine
 def readFile():
-    file = r"C:\proyecto2-so\instrucciones.txt"
+    file = r"C:\proyecto2-so\generatedInstructions.txt"
     if not os.path.exists(file):
         print(f"The file does not exist: {file}")
         return
