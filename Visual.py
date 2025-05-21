@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog, messagebox
 import pandas as pd
 
 fontsizeVar = 12
@@ -58,7 +58,7 @@ class MemoryBar(tk.Canvas):
             x1 = x0 + page_width
             y1 = y0 + page_height
             self.create_rectangle(x0, y0, x1, y1, fill=color, outline='black')
-        self.create_text(x1/2, 40, text=self.label, font=("Arial", 12, "bold"))
+        self.create_text((len(self.page_states)*(page_width+gap) - gap)/2, 40, text=self.label, font=("Arial", 12, "bold"))
 
 def create_table(parent, df):
     container = ttk.Frame(parent)
@@ -127,57 +127,127 @@ def create_stats_table(frame, stats):
 
     return stats_frame
 
-class App(tk.Tk):
+class StartWindow(tk.Tk):
     def __init__(self):
         super().__init__()
+        self.title("Configuración de Simulación")
+        self.geometry("500x400")
+
+        # Algoritmo
+        ttk.Label(self, text="Algoritmo:").grid(row=0, column=0, sticky='w', pady=5, padx=5)
+        self.alg_var = tk.StringVar(value="FIFO")
+        ttk.Combobox(self, textvariable=self.alg_var, values=["FIFO", "SC", "MRU", "RND"], state='readonly').grid(row=0, column=1, pady=5, padx=5)
+
+        # Semilla
+        ttk.Label(self, text="Semilla:").grid(row=1, column=0, sticky='w', pady=5, padx=5)
+        self.seed_var = tk.IntVar(value=0)
+        ttk.Entry(self, textvariable=self.seed_var).grid(row=1, column=1, pady=5, padx=5)
+
+        # Número de operaciones (N)
+        ttk.Label(self, text="Número de operaciones (N):").grid(row=2, column=0, sticky='w', pady=5, padx=5)
+        self.n_var = tk.StringVar(value="500")
+        ttk.Combobox(self, textvariable=self.n_var, values=["500", "1000", "5000"], state='readonly').grid(row=2, column=1, pady=5, padx=5)
+
+        # Número de procesos (P)
+        ttk.Label(self, text="Número de procesos (P):").grid(row=3, column=0, sticky='w', pady=5, padx=5)
+        self.p_var = tk.StringVar(value="10")
+        ttk.Combobox(self, textvariable=self.p_var, values=["10", "50", "100"], state='readonly').grid(row=3, column=1, pady=5, padx=5)
+
+        # Archivo
+        ttk.Label(self, text="Archivo (.txt/.csv):").grid(row=4, column=0, sticky='w', pady=5, padx=5)
+        self.file_var = tk.StringVar()
+        ttk.Entry(self, textvariable=self.file_var).grid(row=4, column=1, pady=5, padx=5)
+        ttk.Button(self, text="Examinar", command=self.browse_file).grid(row=4, column=2, pady=5, padx=5)
+
+        # Botón iniciar
+        ttk.Button(self, text="Iniciar Simulación", command=self.start_simulation).grid(row=5, column=0, columnspan=3, pady=20)
+
+    def browse_file(self):
+        file = filedialog.askopenfilename(filetypes=[("Archivos de texto", "*.txt;*.csv"), ("Todos los archivos", "*.*")])
+        if file:
+            self.file_var.set(file)
+
+    def start_simulation(self):
+        algorithm = self.alg_var.get()
+        seed = self.seed_var.get()
+        P = self.p_var.get()
+        N = self.n_var.get()
+        filename = self.file_var.get()
+
+
+        if not filename and (P <= 0 or N <= 0):
+            messagebox.showerror("Error", "Debe seleccionar un archivo o ingresar valores válidos para P y N.")
+            return
+
+        self.destroy()
+        app = App(seed, algorithm, filename, P, N)
+        app.mainloop()
+
+
+class App(tk.Tk):
+    def go_back(self):
+        self.destroy()
+        StartWindow().mainloop()
+
+    def __init__(self, seed, algorithm, filename, P, N):
+        super().__init__()
+
+        self.seed = seed
+        self.algorithm = algorithm
+        self.filename = filename
+        self.P = P
+        self.N = N
+
         self.title("Simulación de Memoria - Layout Completo")
         self.geometry("1600x1000")
         self.resizable(True, True)
 
+        # Estilo para botón grande
+        style = ttk.Style()
+        style.configure("Big.TButton", font=("Arial", 10, "bold"), padding=10)
+
+        # Layout principal
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
-        self.rowconfigure(1, weight=1)
+        self.rowconfigure(1, weight=1)  # zona de tablas
+        self.rowconfigure(3, weight=0)  # zona de botón
 
-        # Frame container para lado izquierdo
-        frame_left = ttk.Frame(self)
-        frame_left.grid(row=1, column=0, sticky='nsew', padx=10, pady=10)
-        frame_left.columnconfigure(0, weight=1)
-        frame_left.rowconfigure(1, weight=1)
-        frame_left.rowconfigure(2, weight=0)
-
-        # Frame container para lado derecho
-        frame_right = ttk.Frame(self)
-        frame_right.grid(row=1, column=1, sticky='nsew', padx=10, pady=10)
-        frame_right.columnconfigure(0, weight=1)
-        frame_right.rowconfigure(1, weight=1)
-        frame_right.rowconfigure(2, weight=0)
-
-        # Barras de memoria
         mem_bar_left = MemoryBar(self, page_states=[1,1,0,2,2,3,3,4,4,5,5,0,1,2,3,4,5,1,2,3,0],
                                  label="RAM - OPT", width=800, height=50, bg='white')
         mem_bar_right = MemoryBar(self, page_states=[1,1,1,2,2,2,3,3,4,4,4,5,5,5,0,1,2,3,4,5,0],
                                   label="RAM - [ALG]", width=800, height=50, bg='white')
-        mem_bar_left.grid(row=0, column=0, padx=20, pady=10)
-        mem_bar_right.grid(row=0, column=1, padx=20, pady=10)
+        mem_bar_left.grid(row=0, column=0, padx=20, pady=5, sticky='n')
+        mem_bar_right.grid(row=0, column=1, padx=20, pady=5, sticky='n')
 
-        # Tablas con scrollbars
+        frame_left = ttk.Frame(self)
+        frame_left.grid(row=1, column=0, sticky='nsew', padx=10, pady=(5, 0))
+        frame_left.columnconfigure(0, weight=1)
+        frame_left.rowconfigure(1, weight=1)
+
+        frame_right = ttk.Frame(self)
+        frame_right.grid(row=1, column=1, sticky='nsew', padx=10, pady=(5, 0))
+        frame_right.columnconfigure(0, weight=1)
+        frame_right.rowconfigure(1, weight=1)
+
+        ttk.Label(frame_left, text="MMU - OPT", font=("Arial", 14, "bold")).grid(row=0, column=0, pady=5)
+        ttk.Label(frame_right, text="MMU - [ALG]", font=("Arial", 14, "bold")).grid(row=0, column=0, pady=5)
+
         self.table_container_left, self.tree1 = create_table(frame_left, df_opt)
         self.table_container_left.grid(row=1, column=0, sticky='nsew', pady=5)
 
         self.table_container_right, self.tree2 = create_table(frame_right, df_alg)
         self.table_container_right.grid(row=1, column=0, sticky='nsew', pady=5)
 
-        # Títulos para tablas
-        ttk.Label(frame_left, text="MMU - OPT", font=("Arial", 14, "bold")).grid(row=0, column=0, pady=5)
-        ttk.Label(frame_right, text="MMU - [ALG]", font=("Arial", 14, "bold")).grid(row=0, column=0, pady=5)
-
-        # Estadísticas
         self.stats_frame1 = create_stats_table(frame_left, stats1)
         self.stats_frame1.grid(row=2, column=0, sticky='ew', pady=10)
 
         self.stats_frame2 = create_stats_table(frame_right, stats1)
         self.stats_frame2.grid(row=2, column=0, sticky='ew', pady=10)
 
+        # Botón Volver abajo centrado
+        btn_back = ttk.Button(self, text="Regresar", command=self.go_back, style="Big.TButton")
+        btn_back.grid(row=3, column=0, sticky='w', padx=30, pady=30)
+
 if __name__ == "__main__":
-    app = App()
-    app.mainloop()
+    start = StartWindow()
+    start.mainloop()
