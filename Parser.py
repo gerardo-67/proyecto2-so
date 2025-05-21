@@ -47,6 +47,7 @@ def instructionKill(pid):
 
 #Utiliza expresiones regulares para analizar las lineas y extraer su contenido
 def processLine(line):
+
     print("\n............\nLine:", line) 
 
     if match := re.match(r'new\((\d+),(\d+)\)', line):
