@@ -1,0 +1,8 @@
+new(1,500)
+new(2,500)
+use(1)
+new(1,1000)
+use(1)
+use(2)
+delete(1)
+kill(1)

@@ -1,16 +1,14 @@
 '''
 Parser de archivos
 Fecha de inicio: 1:00pm 12/5/25
-Última modificación: 7:00 pm 13/5/25
-
-FALTA INTEGRARLO Y CAMBIARLO
+Última modificación: 7:00 pm 20/5/25
 '''
 
 import re
 import os
 
 symbolTable = {} #Tabla de símbolos que almacena los punteros por proceso
-#Symbol table: {1: {1: 500, 2: 1000}}. el proceso pid 1 tiene dos punteros 1 y 2
+#Symbol table: {1: [1, 3], 2: [2]} el pid 1 tiene dos punteros: 1 y 3
 
 ptrCounter = 1 
 
@@ -20,10 +18,10 @@ def instructionNew(pid, size):
 
     #Si el proceso no está en la tabla se agrega 
     if pid not in symbolTable:
-        symbolTable[pid] = {}
+        symbolTable[pid] = []
         
-    #Asigna un puntero al proceso y lo guarda con el tamaño correspondiente
-    symbolTable[pid][ptrCounter] = size
+    #Asigna un puntero al proceso y lo guarda
+    symbolTable[pid].append(ptrCounter)
     print(f"Assigned ptr {ptrCounter} to PID {pid}")
     ptrCounter += 1
     print ("Symbol table:", symbolTable)
@@ -35,21 +33,20 @@ def instructionUse(ptr):
 def instructionDelete(ptr):
     print(f"DELETE: Removing ptr {ptr}")
     # Recorre la tabla de símbolos y elimina el puntero
-    for pid in symbolTable:
-        if ptr in symbolTable[pid]:
-            del symbolTable[pid][ptr]
-            break
+    #for pid in symbolTable:
+    #   if ptr in symbolTable[pid]:
+    #      del symbolTable[pid][ptr]
+    #     break
 
 def instructionKill(pid):
     print(f"KILL: Terminating process {pid}")
     # Elimina el proceso de la tabla de símbolos
-    if pid in symbolTable:
-        del symbolTable[pid]
+    #if pid in symbolTable:
+    #   del symbolTable[pid]
 
 
 #Utiliza expresiones regulares para analizar las lineas y extraer su contenido
 def processLine(line):
-
     print("\n............\nLine:", line) 
 
     if match := re.match(r'new\((\d+),(\d+)\)', line):
@@ -73,13 +70,14 @@ def processLine(line):
 
 #Lee el archivo de instrucciones y manda cada línea a la función processLine
 def readFile():
-    file = r"C:\Users\50684\Downloads\Sistemas Operativos\Proyecto 2\instrucciones.txt"
+    file = r"C:\proyecto2-so\instrucciones.txt"
     if not os.path.exists(file):
         print(f"The file does not exist: {file}")
         return
     with open(file, "r") as f:
         for line in f:
             processLine(line)
+    print(symbolTable)
 
 readFile()
 
