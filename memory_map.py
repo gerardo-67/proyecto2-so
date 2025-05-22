@@ -17,7 +17,7 @@ class Clock():
         self.hits += 1
     def register_fault(self):
         self.total_time += 5
-        self.thrashing =+ 5
+        self.thrashing += 5
         self.faults += 1
     
 class Page:
@@ -71,6 +71,8 @@ class MemoryMap:
         for pointer_id, pointer in self.pointers.items():
             result += f"  Pointer ID {pointer_id}:\n    {pointer}\n"
         return result
+
+oldest_page_index = 0
 class PageReplacementStrategy(ABC):
     @abstractmethod
     def replace(self, frames:list[Page], page: Page):
@@ -80,25 +82,71 @@ class PageReplacementStrategy(ABC):
         pass
 
 class OptimalPageReplacementStrategy(PageReplacementStrategy):
-    current_pointer_pages = []
-    def replace(self, frames:list[Page], page:Page):
-        farthest_access:int = -1
-        index_of_page_to_replace:int = -1
+    def replace(self, frames: list[Page], page: Page):
+        # Accesos futuros a cada página
+        page_accesses: dict[int, list[int]] = parser.page_accesses
+        farthest = -1
+        index_to_replace = -1
 
-        # Obtiene todos los accesos a las paginas.
-        page_accesses:dict[int, list[int]] = parser.page_accesses
+        for i, frame_page in enumerate(frames):
+            if frame_page is None:
+                # Si hay un frame vacío, úsalo directamente
+                return i
+            accesses = page_accesses.get(frame_page.page_id, [])
+            if not accesses:
+                # Si la página no se usará más, reemplázala
+                return i
+            # El acceso más próximo en el futuro
+            next_access = accesses[0]
+            if next_access > farthest:
+                farthest = next_access
+                index_to_replace = i
 
-        # Revisa cada pagina en los frames, y chequea quien tiene el siguiente acceso mas lejano para hacer el reemplazo.
-        for i,page_ in enumerate(frames):
-            if (i in OptimalPageReplacementStrategy.current_pointer_pages):
-                continue
-            if (len(page_accesses[page_.page_id]) < 1):
-                index_of_page_to_replace = i
-                break
-            next_access_of_page:int = page_accesses[page_.page_id][0]
-            if (next_access_of_page > farthest_access):
-                farthest_access:int = next_access_of_page
-                index_of_page_to_replace = i
+        # Si todas las páginas se usarán de nuevo, reemplaza la que se usará más tarde
+        return index_to_replace
+
+    def mark_page(self, page: Page):
+        # Elimina el acceso recién hecho de la lista de accesos futuros
+        page_id = page.page_id
+        if page_id in parser.page_accesses and parser.page_accesses[page_id]:
+            parser.page_accesses[page_id].pop(0)
+
+    def __str__(self):
+        return "Optimal Page Replacement Strategy"
+    
+class RandomPageReplacementStrategy(PageReplacementStrategy):
+    def replace(self, frames: list[Page], page: Page):   
+        index_of_page_to_replace:int
+
+        index_of_page_to_replace:int = random.randint(0, len(frames) - 1)
+        
+        replaced_page = frames[index_of_page_to_replace]
+        # Actualiza datos de pagina reemplazada
+        replaced_page.loaded = False
+        replaced_page.memory_address = 0
+
+        # Se remplaza la pagina anterior por la nueva
+        frames[index_of_page_to_replace] = page
+        page.memory_address = index_of_page_to_replace
+
+
+        next_use = parser.page_accesses[replaced_page.page_id][0] if parser.page_accesses[replaced_page.page_id] else "no hay más usos"
+        print(f"Reemplazo de página {replaced_page.page_id}. Página {page.page_id} cargada en el frame {index_of_page_to_replace}.")
+        return index_of_page_to_replace
+
+    def mark_page(self, page: Page):
+        # No se requiere lógica especial para Random
+        pass
+
+class FIFOPageReplacementStrategy(PageReplacementStrategy):
+    def __init__(self):
+        self.queue = []  # Cola de índices de frames ocupados en orden de llegada
+
+    def replace(self, frames: list[Page], page: Page):
+        global oldest_page_index
+        if oldest_page_index == (frame_amount-1):
+            oldest_page_index = 0
+        index_of_page_to_replace = oldest_page_index
 
         replaced_page = frames[index_of_page_to_replace]
         # Actualiza datos de pagina reemplazada
@@ -109,80 +157,78 @@ class OptimalPageReplacementStrategy(PageReplacementStrategy):
         frames[index_of_page_to_replace] = page
         page.memory_address = index_of_page_to_replace
 
-        # Se agrega la pagina a este arreglo para garantizar que todos las paginas de un respectivo puntero se carguen a memoria juntas, y no se remplacen unas por otras.
-        OptimalPageReplacementStrategy.current_pointer_pages.append(index_of_page_to_replace)
 
-        next_use = parser.page_accesses[replaced_page.page_id][0] if parser.page_accesses[replaced_page.page_id] else "no hay más usos"
-        print(f"Reemplazo de página {replaced_page.page_id} porque su próximo uso es en: {next_use}. Página {page.page_id} cargada en el frame {index_of_page_to_replace}.")
+        oldest_page_index += 1
+
+        print(f"Reemplazo FIFO: Página {replaced_page.page_id} reemplazada por la página {page.page_id} en el frame {index_of_page_to_replace}.")
         return index_of_page_to_replace
-    def mark_page(self, page: Page):
-        # Elimina el acceso recien hecho de la lista de accesos proximos. Osea el primer elemento
-        # de la lista page_acceses[id de la pagina]
-        page_id = page.page_id
-        parser.page_accesses[page_id].pop(0)
-        return None
-    def __str__(self):
-        return "Optimal Page Replacement Strategy"
-class FIFOPageReplacementStrategy(PageReplacementStrategy):
-    def __init__(self):
-        self.queue = []
-
-    def replace(self, frames: list[Page], page: Page):
-        # Encuentra el primer frame ocupado (FIFO)
-        for i, frame in enumerate(frames):
-            if frame is not None:
-                index_to_replace = i
-                break
-        else:
-            index_to_replace = 0  # fallback
-
-        # Actualiza la cola FIFO
-        if len(self.queue) >= len(frames):
-            self.queue.pop(0)
-        self.queue.append(page)
-
-        replaced_page = frames[index_to_replace]
-        replaced_page.loaded = False
-        frames[index_to_replace] = page
-        return index_to_replace
 
     def mark_page(self, page: Page):
+        # FIFO no necesita marcar páginas
         pass
 
+last_used_index:int = 0
 class MRUPageReplacementStrategy(PageReplacementStrategy):
-    def __init__(self):
-        self.last_used_index = None
-
     def replace(self, frames: list[Page], page: Page):
-        # Reemplaza la página más recientemente usada
-        if self.last_used_index is not None:
-            index_to_replace = self.last_used_index
-        else:
-            index_to_replace = 0  # fallback
-
+        global last_used_index
+        # Si el frame más recientemente usado está vacío, busca el último frame ocupado
+        if frames[last_used_index] is None:
+            # Busca el frame ocupado más cercano hacia atrás
+            for i in range(len(frames) - 1, -1, -1):
+                if frames[i] is not None:
+                    last_used_index = i
+                    break
+        index_to_replace = last_used_index
         replaced_page = frames[index_to_replace]
-        replaced_page.loaded = False
-
-        # Guarda el indice de la ultima pagina usada.
-        self.last_used_index = index_to_replace
-
+        if replaced_page is not None:
+            replaced_page.loaded = False
+            replaced_page.memory_address = 0
         frames[index_to_replace] = page
+        page.memory_address = index_to_replace
+        print(f"MRU: Página {replaced_page.page_id} reemplazada por la página {page.page_id} en el frame {index_to_replace}.")
         return index_to_replace
 
     def mark_page(self, page: Page):
         pass
 
-class RandomPageReplacementStrategy(PageReplacementStrategy):
+class SecondChancePageReplacementStrategy(PageReplacementStrategy):
+    def __init__(self, frame_amount=30):
+        self.pointer = 0  # Apunta al siguiente frame candidato a reemplazo
+        self.reference_bits = [0] * frame_amount  # Bit de referencia para cada frame
+
     def replace(self, frames: list[Page], page: Page):
-        indices = [i for i, frame in enumerate(frames) if frame is not None]
-        index_to_replace = random.choice(indices)
+        n = len(frames)
+        while True:
+            # Si el frame está vacío, úsalo directamente
+            if frames[self.pointer] is None:
+                index_to_replace = self.pointer
+                break
+            # Si el bit de referencia es 0, reemplaza esta página
+            if self.reference_bits[self.pointer] == 0:
+                index_to_replace = self.pointer
+                break
+            # Si el bit de referencia es 1, dale una segunda oportunidad
+            self.reference_bits[self.pointer] = 0
+            self.pointer = (self.pointer + 1) % n
+
         replaced_page = frames[index_to_replace]
-        replaced_page.loaded = False
+        if replaced_page is not None:
+            replaced_page.loaded = False
+            replaced_page.memory_address = 0
+
         frames[index_to_replace] = page
+        page.memory_address = index_to_replace
+        self.reference_bits[index_to_replace] = 1  # Nuevo o recargado, bit en 1
+        self.pointer = (index_to_replace + 1) % n
+
+        print(f"Second Chance: Página {replaced_page.page_id if replaced_page else 'None'} reemplazada por la página {page.page_id} en el frame {index_to_replace}.")
         return index_to_replace
 
     def mark_page(self, page: Page):
-        pass
+        # Cuando una página es accedida (hit), pon su bit de referencia en 1
+        if page.memory_address is not None:
+            self.reference_bits[page.memory_address] = 1
+
 class Memory:
     def __init__(self, replacement_strategy: PageReplacementStrategy, frame_amount:int):
         self.clock: Clock = Clock()
@@ -195,13 +241,16 @@ class Memory:
             if frame is None:
                 return i
         return -1
-    frame_to_use:int = 0
     def load_page(self, page: Page):
+        global last_used_index
+        frame_to_use:int = 0
         # Si la pagina ya esta en memoria, se registra como hit y no se hace nada
         if (page.loaded):
             self.clock.register_hit()
             print(f"Página {page.page_id} del proceso {page.pid} ya está cargada en memoria (frame {page.memory_address}). Se registra un hit.")
             self.replacement_strategy.mark_page(page)
+            
+            last_used_index = page.memory_address # Registra ultimo indice usado para MRU
             return 
         # Valida que hayan paginas disponibles
         if (self.frames_used < len(self.frames)):
@@ -212,15 +261,16 @@ class Memory:
             # Carga la pagina en el frame disponible
             self.frames[frame_to_use] = page
             
-            # Actualiza datos de la pagina
-            page.load_time += 1
-
             # Marca la pagina dependiendo del algoritmo de reemplazo usado.
             self.replacement_strategy.mark_page(page)
-            
+
+            # Actualiza datos de la pagina
+            page.load_time += 5            
             self.frames_used += 1
-            self.clock.register_hit()
+            self.clock.register_fault()
+            
             print(f"Página {page.page_id} del proceso {page.pid} cargada en el frame {frame_to_use} de la memoria.")
+            last_used_index = frame_to_use  # <-- Actualiza aquí también
         else:
             # Hace el reemplazo y devuelve el indice de memoria que se utilizó
             frame_to_use = self.replacement_strategy.replace(self.frames, page)
@@ -228,14 +278,18 @@ class Memory:
             # Como fue fallo, se suman 5 segundos al contador de tiempo utilizado por la pagina.
             page.load_time += 5
             self.clock.register_fault()
+            last_used_index = frame_to_use # Registra ultimo indice usado para MRU
         page.memory_address = frame_to_use
         page.loaded = True
+
+
+        last_used_index = frame_to_use
     
     def unload_page(self, page: Page):
         for i, page_ in enumerate(self.frames):
             if (page_ == page):
-                del self.frames[i]
-                self.frames_used
+                self.frames[i] = None
+                self.frames_used -= 1
                 page.loaded = False
                 page.memory_address = 0
                 print(f"Descargando página {page.page_id} del índice {i} de la memoria.")
@@ -271,9 +325,6 @@ class MMU:
             pages_created.append(page)
             self.ram.load_page(page)
         
-        # SOLUCION FEA
-        # Lista utilizada para garatizar que el puntero completo se cargue a memoria y no se reemplacen paginas del mismo puntero entre si.
-        OptimalPageReplacementStrategy.current_pointer_pages = []
 
         # Se agrega el puntero junto a sus paginas al memory_map
         pointer = Pointer(pid, size, pages_created)
@@ -289,9 +340,7 @@ class MMU:
         for page in pointers[ptr].pages:
             self.ram.load_page(page)
         
-        # SOLUCION FEA
-        # Lista utilizada para garatizar que el puntero completo se cargue a memoria y no se reemplacen paginas del mismo puntero entre si.
-        OptimalPageReplacementStrategy.current_pointer_pages = []
+
         
         return 0
     def delete(self, ptr: int):
@@ -342,8 +391,10 @@ class MMU:
         result += str(self.memory_map)
         return result
     
+
+frame_amount = 30
 def main():
-    ram: Memory = Memory(OptimalPageReplacementStrategy(), 100)
+    ram: Memory = Memory(MRUPageReplacementStrategy(), frame_amount)
     mmu: MMU = MMU(ram, MemoryMap())
     instruction_log: list[Line] = parser.instruction_log
 
@@ -360,13 +411,18 @@ def main():
             case _:
                 print(f"Error: Instruction {instruction.instruction} with arguments: {instruction.arguments} is not valid.")
         print(f"{instruction.instruction} con argumentos: {instruction.arguments}")
-        # print("RAM:")
-        # for i, frame in enumerate(ram.frames):
-        #     if frame is not None:
-        #         print(f"  Frame {i}: {frame.page_id}")
-        #     else:
-        #         print(f"  Frame {i}: [Vacío]")
-        input("")
+    # print("RAM:")
+    # for i, frame in enumerate(ram.frames):
+    #     if frame is not None:
+    #         print(f"  Frame {i}: {frame.page_id}")
+    #     else:
+    #         print(f"  Frame {i}: [Vacío]")
+    #input("")
+    print("Pointers actuales en el sistema:")
+    for pointer_id, pointer in mmu.memory_map.pointers.items():
+        print(f"Pointer ID {pointer_id}:")
+        print(pointer)
+        print("-" * 40)
     print(f"Hits: {ram.clock.hits}")
     print(f"Faults: {ram.clock.faults}")
     print(f"Sim-Time: {ram.clock.total_time}s")
