@@ -4,7 +4,7 @@ import random
 
 
 parser = Parser()
-parser.readFile(r"C:\Users\gerar\OneDrive\AAA TEC\Semestre 1 2025\SO\Proyecto 2\instrucciones.txt")
+parser.readFile("instrucciones.txt")
 
 class Clock():
     def __init__(self):
@@ -17,7 +17,7 @@ class Clock():
         self.hits += 1
     def register_fault(self):
         self.total_time += 5
-        self.thrashing =+ 5
+        self.thrashing += 5
         self.faults += 1
     
 class Page:
@@ -341,6 +341,43 @@ class MMU:
         result += str(self.ram) + "\n"
         result += str(self.memory_map)
         return result
+
+def get_page_data(mmu: MMU) -> dict:
+    """
+    Recopila los datos de todas las páginas en el sistema y los retorna en un diccionario
+    con el formato especificado.
+    """
+    # Recopilar todas las páginas de todos los punteros
+    all_pages = []
+    for pointer in mmu.memory_map.pointers.values():
+        all_pages.extend(pointer.pages)
+    
+    # Ordenar las páginas por su page_id
+    all_pages.sort(key=lambda page: page.page_id)
+    
+    # Construir el diccionario de datos
+    data = {
+        "PAGE ID": [],
+        "PID": [],
+        "LOADED": [],
+        "L-ADDR": [],
+        "M-ADDR": [],
+        "D-ADDR": [],
+        "LOADED-T": [],
+        "MARK": []
+    }
+    
+    for page in all_pages:
+        data["PAGE ID"].append(page.page_id)
+        data["PID"].append(page.pid)
+        data["LOADED"].append('X' if page.loaded else '')
+        data["L-ADDR"].append(page.logical_address)
+        data["M-ADDR"].append(page.memory_address if page.loaded and page.memory_address is not None else '')
+        data["D-ADDR"].append(page.disk_address if not page.loaded and page.disk_address is not None else '')
+        data["LOADED-T"].append(f"{page.load_time}s" if page.load_time > 0 else '')
+        data["MARK"].append(page.mark if hasattr(page, 'mark') and page.mark is not None else '')
+    
+    return data
     
 def main():
     ram: Memory = Memory(OptimalPageReplacementStrategy(), 100)
@@ -360,16 +397,14 @@ def main():
             case _:
                 print(f"Error: Instruction {instruction.instruction} with arguments: {instruction.arguments} is not valid.")
         print(f"{instruction.instruction} con argumentos: {instruction.arguments}")
-        # print("RAM:")
-        # for i, frame in enumerate(ram.frames):
-        #     if frame is not None:
-        #         print(f"  Frame {i}: {frame.page_id}")
-        #     else:
-        #         print(f"  Frame {i}: [Vacío]")
-        input("")
+
+    # Obtener los datos de las páginas
+    page_data = get_page_data(mmu)
+    
+    print("\nResumen de estado de páginas:")
     print(f"Hits: {ram.clock.hits}")
     print(f"Faults: {ram.clock.faults}")
     print(f"Sim-Time: {ram.clock.total_time}s")
     print(f"Thrashing: {ram.clock.thrashing}s")
-
-main()
+    
+    return page_data

@@ -1,19 +1,24 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import pandas as pd
+import memory_map as mm
 
 fontsizeVar = 12
 
-data = {
-    "PAGE ID": list(range(1, 20)),
-    "PID": [1]*5 + [2]*10 + [3]*4,
-    "LOADED": ['X', 'X', '', 'X', '', 'X', 'X', 'X', 'X', 'X', '', 'X', '', '', 'X', 'X', 'X', '', ''],
-    "L-ADDR": list(range(1, 20)),
-    "M-ADDR": [1,2,3,4,5,8,9,10,11,12,21,22,13,14,15,25,26,18,19],
-    "D-ADDR": ['', '', 143, '', 100, '', '', '', '', 231, '', '', 278, 245, '', 152, 153, 97, 12],
-    "LOADED-T": ['0s', '1s', '5s', '5s', '', '3s', '4s', '7s', '12s', '13s', '14s', '15s', '', '', '151s', '152s', '153s', '', ''],
-    "MARK": ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
-}
+#data = {
+#    "PAGE ID": list(range(1, 20)),
+#    "PID": [1]*5 + [2]*10 + [3]*4,
+#    "LOADED": ['X', 'X', '', 'X', '', 'X', 'X', 'X', 'X', 'X', '', 'X', '', '', 'X', 'X', 'X', '', ''],
+#    "L-ADDR": list(range(1, 20)),
+#    "M-ADDR": [1,2,3,4,5,8,9,10,11,12,21,22,13,14,15,25,26,18,19],
+#    "D-ADDR": ['', '', 143, '', 100, '', '', '', '', 231, '', '', 278, 245, '', 152, 153, 97, 12],
+#    "LOADED-T": ['0s', '1s', '5s', '5s', '', '3s', '4s', '7s', '12s', '13s', '14s', '15s', '', '', '151s', '152s', '153s', '', ''],
+#    "MARK": ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+#}
+
+data = mm.main()
+
+
 df_opt = pd.DataFrame(data)
 df_alg = pd.DataFrame(data)
 
@@ -127,69 +132,69 @@ def create_stats_table(frame, stats):
 
     return stats_frame
 
-class StartWindow(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.title("Configuración de Simulación")
-        self.geometry("500x400")
-
-        # Algoritmo
-        ttk.Label(self, text="Algoritmo:").grid(row=0, column=0, sticky='w', pady=5, padx=5)
-        self.alg_var = tk.StringVar(value="FIFO")
-        ttk.Combobox(self, textvariable=self.alg_var, values=["FIFO", "SC", "MRU", "RND"], state='readonly').grid(row=0, column=1, pady=5, padx=5)
-
-        # Semilla
-        ttk.Label(self, text="Semilla:").grid(row=1, column=0, sticky='w', pady=5, padx=5)
-        self.seed_var = tk.IntVar(value=0)
-        ttk.Entry(self, textvariable=self.seed_var).grid(row=1, column=1, pady=5, padx=5)
-
-        # Número de operaciones (N)
-        ttk.Label(self, text="Número de operaciones (N):").grid(row=2, column=0, sticky='w', pady=5, padx=5)
-        self.n_var = tk.StringVar(value="500")
-        ttk.Combobox(self, textvariable=self.n_var, values=["500", "1000", "5000"], state='readonly').grid(row=2, column=1, pady=5, padx=5)
-
-        # Número de procesos (P)
-        ttk.Label(self, text="Número de procesos (P):").grid(row=3, column=0, sticky='w', pady=5, padx=5)
-        self.p_var = tk.StringVar(value="10")
-        ttk.Combobox(self, textvariable=self.p_var, values=["10", "50", "100"], state='readonly').grid(row=3, column=1, pady=5, padx=5)
-
-        # Archivo
-        ttk.Label(self, text="Archivo (.txt/.csv):").grid(row=4, column=0, sticky='w', pady=5, padx=5)
-        self.file_var = tk.StringVar()
-        ttk.Entry(self, textvariable=self.file_var).grid(row=4, column=1, pady=5, padx=5)
-        ttk.Button(self, text="Examinar", command=self.browse_file).grid(row=4, column=2, pady=5, padx=5)
-
-        # Botón iniciar
-        ttk.Button(self, text="Iniciar Simulación", command=self.start_simulation).grid(row=5, column=0, columnspan=3, pady=20)
-
-    def browse_file(self):
-        file = filedialog.askopenfilename(filetypes=[("Archivos de texto", "*.txt;*.csv"), ("Todos los archivos", "*.*")])
-        if file:
-            self.file_var.set(file)
-
-    def start_simulation(self):
-        algorithm = self.alg_var.get()
-        seed = self.seed_var.get()
-        P = self.p_var.get()
-        N = self.n_var.get()
-        filename = self.file_var.get()
-
-
-        if not filename and (P <= 0 or N <= 0):
-            messagebox.showerror("Error", "Debe seleccionar un archivo o ingresar valores válidos para P y N.")
-            return
-
-        self.destroy()
-        app = App(seed, algorithm, filename, P, N)
-        app.mainloop()
+# class StartWindow(tk.Tk):
+#     def __init__(self):
+#         super().__init__()
+#         self.title("Configuración de Simulación")
+#         self.geometry("500x400")
+#
+#         # Algoritmo
+#         ttk.Label(self, text="Algoritmo:").grid(row=0, column=0, sticky='w', pady=5, padx=5)
+#         self.alg_var = tk.StringVar(value="FIFO")
+#         ttk.Combobox(self, textvariable=self.alg_var, values=["FIFO", "SC", "MRU", "RND"], state='readonly').grid(row=0, column=1, pady=5, padx=5)
+#
+#         # Semilla
+#         ttk.Label(self, text="Semilla:").grid(row=1, column=0, sticky='w', pady=5, padx=5)
+#         self.seed_var = tk.IntVar(value=0)
+#         ttk.Entry(self, textvariable=self.seed_var).grid(row=1, column=1, pady=5, padx=5)
+#
+#         # Número de operaciones (N)
+#         ttk.Label(self, text="Número de operaciones (N):").grid(row=2, column=0, sticky='w', pady=5, padx=5)
+#         self.n_var = tk.StringVar(value="500")
+#         ttk.Combobox(self, textvariable=self.n_var, values=["500", "1000", "5000"], state='readonly').grid(row=2, column=1, pady=5, padx=5)
+#
+#         # Número de procesos (P)
+#         ttk.Label(self, text="Número de procesos (P):").grid(row=3, column=0, sticky='w', pady=5, padx=5)
+#         self.p_var = tk.StringVar(value="10")
+#         ttk.Combobox(self, textvariable=self.p_var, values=["10", "50", "100"], state='readonly').grid(row=3, column=1, pady=5, padx=5)
+#
+#         # Archivo
+#         ttk.Label(self, text="Archivo (.txt/.csv):").grid(row=4, column=0, sticky='w', pady=5, padx=5)
+#         self.file_var = tk.StringVar()
+#         ttk.Entry(self, textvariable=self.file_var).grid(row=4, column=1, pady=5, padx=5)
+#         ttk.Button(self, text="Examinar", command=self.browse_file).grid(row=4, column=2, pady=5, padx=5)
+#
+#         # Botón iniciar
+#         ttk.Button(self, text="Iniciar Simulación", command=self.start_simulation).grid(row=5, column=0, columnspan=3, pady=20)
+#
+#     def browse_file(self):
+#         file = filedialog.askopenfilename(filetypes=[("Archivos de texto", "*.txt;*.csv"), ("Todos los archivos", "*.*")])
+#         if file:
+#             self.file_var.set(file)
+#
+#     def start_simulation(self):
+#         algorithm = self.alg_var.get()
+#         seed = self.seed_var.get()
+#         P = self.p_var.get()
+#         N = self.n_var.get()
+#         filename = self.file_var.get()
+#
+#
+#         if not filename and (P <= 0 or N <= 0):
+#             messagebox.showerror("Error", "Debe seleccionar un archivo o ingresar valores válidos para P y N.")
+#             return
+#
+#         self.destroy()
+#         app = App(seed, algorithm, filename, P, N)
+#         app.mainloop()
 
 
 class App(tk.Tk):
     def go_back(self):
         self.destroy()
-        StartWindow().mainloop()
+        # StartWindow().mainloop()
 
-    def __init__(self, seed, algorithm, filename, P, N):
+    def __init__(self, seed=0, algorithm="FIFO", filename="", P="10", N="500"):
         super().__init__()
 
         self.seed = seed
@@ -248,6 +253,11 @@ class App(tk.Tk):
         btn_back = ttk.Button(self, text="Regresar", command=self.go_back, style="Big.TButton")
         btn_back.grid(row=3, column=0, sticky='w', padx=30, pady=30)
 
+        #data = mm.main()
+
+
 if __name__ == "__main__":
-    start = StartWindow()
-    start.mainloop()
+    # start = StartWindow()
+    # start.mainloop()
+    app = App()
+    app.mainloop()
