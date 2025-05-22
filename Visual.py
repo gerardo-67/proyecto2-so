@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import pandas as pd
 
+import InstructionGenerator
+
 fontsizeVar = 12
 
 data = {
@@ -170,14 +172,18 @@ class StartWindow(tk.Tk):
     def start_simulation(self):
         algorithm = self.alg_var.get()
         seed = self.seed_var.get()
-        P = self.p_var.get()
-        N = self.n_var.get()
+        P = int(self.p_var.get())
+        N = int(self.n_var.get())
         filename = self.file_var.get()
 
 
         if not filename and (P <= 0 or N <= 0):
             messagebox.showerror("Error", "Debe seleccionar un archivo o ingresar valores válidos para P y N.")
             return
+
+        if not filename:
+            InstructionGenerator.generateInstructions(P, N, seed)
+            filename = "generatedInstructions.txt"
 
         self.destroy()
         app = App(seed, algorithm, filename, P, N)

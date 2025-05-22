@@ -18,6 +18,8 @@ def generateInstructions(numProcesses: int,
                          numOperations: int,
                          seed: int,
                          maxSize: int = 100) -> tuple[list[str], dict[int, list[int]]]:
+    
+    print("entro")
     initSeed(seed)
     #Tabla de símbolos: mapea PID a lista de punteros asignados
     symbolTable = {pid: [] for pid in range(1, numProcesses + 1)}

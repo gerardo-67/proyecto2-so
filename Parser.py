@@ -127,7 +127,7 @@ class Parser:
 
 parser = Parser()
 
-parser.readFile(r"C:\Users\gerar\OneDrive\AAA TEC\Semestre 1 2025\SO\Proyecto 2\instrucciones.txt")
+parser.readFile("generatedInstructions.txt")
 
 
 #print("Pages:", parser.page_accesses)
