@@ -242,7 +242,7 @@ class Memory:
         # Si la pagina ya esta en memoria, se registra como hit y no se hace nada
         if page.loaded:
             self.clock.register_hit()
-            print(f"Página {page.page_id} del proceso {page.pid} ya está cargada en memoria (frame {page.memory_address}). Se registra un hit.")
+            #print(f"Página {page.page_id} del proceso {page.pid} ya está cargada en memoria (frame {page.memory_address}). Se registra un hit.")
             self.replacement_strategy.mark_page(page)
             last_used_index = page.memory_address
             page.load_time += 1
@@ -257,7 +257,7 @@ class Memory:
                 return -1
             self.frames[frame_to_use] = page
             self.frames_used += 1
-            print(f"Página {page.page_id} del proceso {page.pid} cargada en el frame {frame_to_use} de la memoria.")
+            #print(f"Página {page.page_id} del proceso {page.pid} cargada en el frame {frame_to_use} de la memoria.")
         else:
             # Selecciona el frame a reemplazar usando la estrategia
             frame_to_use:int = self.replacement_strategy.replace(self.frames)
@@ -269,7 +269,7 @@ class Memory:
                 replaced_page.disk_address = disk_used_spaces
                 disk_used_spaces += 1
             self.frames[frame_to_use] = page
-            print(f"Página {page.page_id} del proceso {page.pid} reemplazó a la página {replaced_page.page_id if replaced_page else 'None'} en el frame {frame_to_use}.")
+            #print(f"Página {page.page_id} del proceso {page.pid} reemplazó a la página {replaced_page.page_id if replaced_page else 'None'} en el frame {frame_to_use}.")
 
         # Marca la página según la estrategia
         self.replacement_strategy.mark_page(page)
@@ -287,9 +287,9 @@ class Memory:
                 self.frames_used -= 1
                 page.loaded = False
                 page.memory_address = 0
-                print(f"Descargando página {page.page_id} del índice {i} de la memoria.")
+                #print(f"Descargando página {page.page_id} del índice {i} de la memoria.")
                 return 0
-        print(f"La página {page.page_id} no estaba cargada en memoria.")
+        #print(f"La página {page.page_id} no estaba cargada en memoria.")
         return 0
     def __str__(self):
         result = "Estado de la Memoria RAM:\n"
@@ -434,11 +434,16 @@ class MMU:
         return result
     
 
-frame_amount = 30
-def main():
-    ram: Memory = Memory(RandomPageReplacementStrategy(), frame_amount)
-    mmu: MMU = MMU(ram, MemoryMap())
-    instruction_log: list[Line] = parser.instruction_log
+frame_amount = 100
+def main(replacement_strategy_class, instruction_file):
+    global parser
+    parser = Parser()
+    parser.readFile(instruction_file)
+
+    ram = Memory(replacement_strategy_class(), frame_amount)
+    mmu = MMU(ram, MemoryMap())
+
+    instruction_log = parser.instruction_log
 
     for instruction in instruction_log:
         match instruction.instruction:
@@ -452,15 +457,35 @@ def main():
                 mmu.kill(instruction.arguments[0])
             case _:
                 print(f"Error: Instruction {instruction.instruction} with arguments: {instruction.arguments} is not valid.")
-        print(f"{instruction.instruction} con argumentos: {instruction.arguments}")
-        #input("")
-    # print("RAM:")
-    # for i, frame in enumerate(ram.frames):
-    #     if frame is not None:
-    #         print(f"  Frame {i}: {frame.page_id}")
-    #     else:
-    #         print(f"  Frame {i}: [Vacío]")
-    #input("")
+
+    pages_info = []
+    for pointer_id, pointer in mmu.memory_map.pointers.items():
+        for page in pointer.pages:
+            pages_info.append({
+                "PAGE ID": page.page_id,
+                "PID": page.pid,
+                "LOADED": 'X' if page.loaded else '',
+                "L-ADDR": page.logical_address,
+                "M-ADDR": page.memory_address if page.memory_address is not None else '',
+                "D-ADDR": page.disk_address if page.disk_address is not None else '',
+                "LOADED-T": f"{page.load_time}s" if page.load_time > 0 else '',
+                "MARK": page.mark
+            })
+
+    stats = {
+        "Processes": mmu.get__active_process_amount(),
+        "Sim-Time": f"{ram.clock.total_time}s",
+        "RAM KB": mmu.get_kb_used_in_ram(),
+        "RAM %": f"{mmu.real_ram_percentage():.2f}%",
+        "V-RAM KB": mmu.get_kb_used_in_disk(),
+        "V-RAM %": f"{mmu.real_disk_percentage():.2f}%",
+        "PAGES LOADED": mmu.get_loaded_amount(),
+        "PAGES UNLOADED": mmu.get_unloaded_amount(),
+        "Thrashing": f"{ram.clock.thrashing}s",
+        "Thrashing %": f"{mmu.get_percentage_of_thrashing():.2f}%",
+        "Fragmentación": f"{mmu.get_internal_fragmentation_in_kb():.2f} KB"
+    }
+
     print("Pointers actuales en el sistema:")
     for pointer_id, pointer in mmu.memory_map.pointers.items():
         print(f"Pointer ID {pointer_id}:")
@@ -482,4 +507,8 @@ def main():
     print(f"Porcentaje real de disco usado: {mmu.real_disk_percentage():.2f}%")
     print(f"Fragmentación interna total: {mmu.get_internal_fragmentation_in_kb()} bytes")
 
-main()
+    return pages_info, stats
+
+
+
+#main()
