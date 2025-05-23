@@ -90,7 +90,6 @@ class Parser:
 
     #Utiliza expresiones regulares para analizar las lineas y extraer su contenido
     def __processLine(self, line):
-        #print("\n............\nLine:", line) 
 
         if match := re.match(r'new\((\d+),(\d+)\)', line):
             pid, size = map(int, match.groups()) 
@@ -120,16 +119,5 @@ class Parser:
         with open(file_path, "r") as f:
             for line in f:
                 self.__processLine(line)
-        #print(self.processes_to_pointers)
+        print(self.processes_to_pointers)
 
-
-
-
-parser = Parser()
-
-parser.readFile("instrucciones.txt")
-
-
-
-#print("Pages:", parser.page_accesses)
-#print("Pointers:", parser.pointer_to_pages)
