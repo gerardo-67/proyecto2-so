@@ -48,6 +48,11 @@ class Pointer:
         self.size: int = size
 
         self.pages: list[Page] = pages
+    def get_internal_fragmentation(self):
+        # Calcular la fragmentación interna
+        total_page_size = (len(self.pages) * 4) * 1024  
+        internal_fragmentation = total_page_size - self.size
+        return internal_fragmentation
     def __str__(self):
         pages_str = "\n    ".join(str(page) for page in self.pages)
         return (f"Pointer (PID: {self.pid}, Size: {self.size} bytes)\n"
@@ -381,15 +386,47 @@ class MMU:
         for pointer in self.memory_map.pointers.values():
             pages.extend(pointer.pages)
         return pages
+    # Retorna la cantidad de paginas cargadas en memoria
     def get_loaded_amount(self):
         return self.ram.frames_used
+    
+    # Retorna la cantidad de paginas no cargadas en memoria
     def get_unloaded_amount(self):
         return len(self.get_list_of_pages()) - self.ram.frames_used
+    # Retorna la cantidad de KB usados en RAM
     def get_kb_used_in_ram(self):
-        return (self.ram.frames_used * 4) / 1024
+        return (self.ram.frames_used * 4) 
+    # Retorna la cantidad de KB usados en disco
     def get_kb_used_in_disk(self):
-        return (self.ram.disk_used_spaces * 4) / 1024
-
+        return (self.get_unloaded_amount()) * 4
+    # Retorna el porcentaje real de RAM usada
+    def real_ram_percentage(self):
+        return (self.ram.frames_used / len(self.ram.frames)) * 100
+    # Retorna el porcentaje real de disco usado, segun el tamaño de la ram
+    def real_disk_percentage(self):
+        ram_pages = len(self.ram.frames)
+        disk_pages = self.get_unloaded_amount()
+        if ram_pages == 0:
+            return 0
+        return (disk_pages / ram_pages) * 100
+    
+    def get_internal_fragmentation_in_kb(self):
+        total_internal_fragmentation = 0
+        for pointer in self.memory_map.pointers.values():
+            total_internal_fragmentation += pointer.get_internal_fragmentation()
+        return total_internal_fragmentation / 1024  # Convertir a KB
+    
+    def get_percentage_of_thrashing(self):
+        if self.ram.clock.total_time == 0:
+            return 0
+        return (self.ram.clock.thrashing / self.ram.clock.total_time) * 100
+    
+    def get__active_process_amount(self):
+        return len(parser.processes_to_pointers)
+    
+    def get_total_process_amount(self):
+        return len(self.memory_map.pointers)
+    
     def __str__(self):
         result = "MMU State:\n"
         result += str(self.ram) + "\n"
@@ -399,7 +436,7 @@ class MMU:
 
 frame_amount = 30
 def main():
-    ram: Memory = Memory(OptimalPageReplacementStrategy(), frame_amount)
+    ram: Memory = Memory(RandomPageReplacementStrategy(), frame_amount)
     mmu: MMU = MMU(ram, MemoryMap())
     instruction_log: list[Line] = parser.instruction_log
 
@@ -433,5 +470,16 @@ def main():
     print(f"Faults: {ram.clock.faults}")
     print(f"Sim-Time: {ram.clock.total_time}s")
     print(f"Thrashing: {ram.clock.thrashing}s")
+    print(f"Porcentaje de thrashing: {mmu.get_percentage_of_thrashing():.2f}%")
+    print(f"Cantidad de procesos activos: {mmu.get__active_process_amount()}")
+    print(f"Cantidad de procesos totales: {mmu.get_total_process_amount()}")
+
+    print(f"Cantidad de páginas cargadas en RAM: {mmu.get_loaded_amount()}")
+    print(f"Cantidad de páginas no cargadas (en disco): {mmu.get_unloaded_amount()}")
+    print(f"KB usados en RAM: {mmu.get_kb_used_in_ram():.2f} KB")
+    print(f"KB usados en disco: {mmu.get_kb_used_in_disk():.2f} KB")
+    print(f"Porcentaje real de RAM usada: {mmu.real_ram_percentage():.2f}%")
+    print(f"Porcentaje real de disco usado: {mmu.real_disk_percentage():.2f}%")
+    print(f"Fragmentación interna total: {mmu.get_internal_fragmentation_in_kb()} bytes")
 
 main()
