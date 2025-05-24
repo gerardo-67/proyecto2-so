@@ -33,10 +33,10 @@ class Parser:
         
         # Calcula cuántas páginas necesita el puntero según el tamaño solicitado.
         pages_needed:int
-        if (size == 1024):
+        if (size == 4096):
             pages_needed = 1
         else:
-            pages_needed = (size // 1024) + 1
+            pages_needed = (size // 4096) + 1
         assigned_pages = []
 
         # Asigna nuevas páginas al puntero y registra el acceso inicial de cada página.
@@ -49,6 +49,9 @@ class Parser:
 
         self.__next_page_id += pages_needed
         self.pointer_to_pages[self.__next_pointer_id] = assigned_pages
+
+        # print(f"Se asignó el puntero {self.__next_pointer_id} al proceso {pid} con las páginas {assigned_pages}")
+        # input("")
         
         #Asigna un puntero al proceso y lo guarda
         self.processes_to_pointers[pid].append(self.__next_pointer_id)
@@ -119,5 +122,5 @@ class Parser:
         with open(file_path, "r") as f:
             for line in f:
                 self.__processLine(line)
-        print(self.processes_to_pointers)
+        #print(self.processes_to_pointers)
 

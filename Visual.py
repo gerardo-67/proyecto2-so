@@ -7,7 +7,11 @@ import InstructionGenerator
 import Parser
 
 fontsizeVar = 12
-
+color_map = [
+    'lightgreen', 'khaki', 'lightpink', 'lightblue', 'lightsalmon', 'plum', 'yellow', 'cyan', 'magenta', 'orange',
+    'lightyellow', 'skyblue', 'lightcoral', 'lightgray', 'mediumseagreen', 'indianred', 'mediumslateblue', 'pink',
+    'lightsteelblue', 'palevioletred'
+]
 class MemoryBar(tk.Frame):
     def __init__(self, parent, page_states, label, width=800, height=50, **kwargs):
         super().__init__(parent, **kwargs)
@@ -37,43 +41,41 @@ class MemoryBar(tk.Frame):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def draw_bar(self):
-        # Limpiamos el frame interno
         for widget in self.inner_frame.winfo_children():
             widget.destroy()
 
         page_width = 18
-        page_height = 12  # Barra más delgada
+        page_height = 12
         gap = 2
-        color_map = {
-            0: 'lightgreen',
-            1: 'khaki',
-            2: 'lightpink',
-            3: 'lightblue',
-            4: 'lightsalmon',
-            5: 'plum'
-        }
+
+        # Usa la lista larga de colores
+        color_map = [
+            'lightgreen', 'khaki', 'lightpink', 'lightblue', 'lightsalmon', 'plum', 'yellow', 'cyan', 'magenta', 'orange',
+            'lightyellow', 'skyblue', 'lightcoral', 'lightgray', 'mediumseagreen', 'indianred', 'mediumslateblue', 'pink',
+            'lightsteelblue', 'palevioletred'
+        ]
 
         total_width = max(1, len(self.page_states)) * (page_width + gap) - gap
         self.inner_frame.config(width=total_width, height=self.height)
 
-        # Crear canvas para barras
         bar_canvas = tk.Canvas(self.inner_frame, width=total_width, height=self.height, bg='white', highlightthickness=0)
         bar_canvas.pack()
 
-        y1 = 0  # Valor por defecto en caso de no haber barras
+        y1 = 0
 
-        for i, state in enumerate(self.page_states):
-            color = color_map.get(state, 'gray')
+        for i, pid in enumerate(self.page_states):
+            if pid == 0:
+                color = 'white'  # Frame vacío
+            else:
+                color = color_map[pid % len(color_map)]  # Mismo PID = mismo color
             x0 = i * (page_width + gap)
             y0 = 10
             x1 = x0 + page_width
             y1 = y0 + page_height
             bar_canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline='black')
 
-        # Texto centrado debajo de las barras, con posición segura
         text_y = y1 + 15 if y1 else page_height + 25
         bar_canvas.create_text(total_width / 2, text_y, text=self.label, font=("Arial", 10, "bold"))
-
 
 def create_table(parent, df):
     container = ttk.Frame(parent)
@@ -120,7 +122,7 @@ def create_stats_table(frame, stats):
     stats_frame.grid(row=2, column=0, sticky='nsew', pady=10)
 
     cols = [
-        ["Processes", "Sim-Time"],
+        ["Processes", "Sim-Time", "Hits", "Faults"],  # <-- Agrega aquí
         ["RAM KB", "RAM %", "V-RAM KB", "V-RAM %"],
         ["PAGES LOADED", "PAGES UNLOADED", "Thrashing", "Thrashing %", "Fragmentación"]
     ]
@@ -190,7 +192,8 @@ class StartWindow(tk.Tk):
         seed = self.seed_var.get()
         P = int(self.p_var.get())
         N = int(self.n_var.get())
-        filename = self.file_var.get()
+        # filename = self.file_var.get()
+        filename = "generatedInstructions.txt"
 
         if not filename:
             InstructionGenerator.generateInstructions(P, N, seed)
@@ -312,13 +315,13 @@ class App(tk.Tk):
             if page['LOADED'] == 'X' and page['M-ADDR'] != '':
                 idx = int(page['M-ADDR'])
                 if 0 <= idx < frame_count:
-                    states_opt[idx] = 1
+                    states_opt[idx] = int(page['PID'])  # <-- Guarda el PID
 
         for page in pages_info_alg:
             if page['LOADED'] == 'X' and page['M-ADDR'] != '':
                 idx = int(page['M-ADDR'])
                 if 0 <= idx < frame_count:
-                    states_alg[idx] = 1
+                    states_alg[idx] = int(page['PID'])  # <-- Guarda el PID
 
         self.mem_bar_left.page_states = states_opt
         self.mem_bar_left.draw_bar()

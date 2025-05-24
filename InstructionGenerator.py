@@ -97,12 +97,13 @@ def generateInstructions(numProcesses: int,
     return instructions, symbolTable
 
 if __name__ == "__main__":
-    numProcesses = 10
-    numOperations = 100
+    numProcesses = 100
+    numOperations = 2000
     seed = 123
+    max_size = 32768
 
     instructions, symbolTable = generateInstructions(
-        numProcesses, numOperations, seed
+        numProcesses, numOperations, seed, max_size
     )
 
     for line in instructions:

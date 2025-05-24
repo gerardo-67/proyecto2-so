@@ -7,4 +7,5 @@
 
 # Cada proceso tiene un PID unico
 
-
+for i in range(1, 4):
+    print(i)

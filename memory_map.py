@@ -1,10 +1,10 @@
 from Parser import Parser, Line
 from abc import ABC, abstractmethod
 import random
+import copy
 
 
-parser = Parser()
-parser.readFile("instrucciones.txt")
+
 
 class Clock():
     def __init__(self):
@@ -21,12 +21,12 @@ class Clock():
         self.faults += 1
     
 class Page:
-    __page_count = 1
+    page_count = 1
     def __init__(self, pid: int):
         self.pid = pid
-        self.page_id = Page.__page_count
-        self.logical_address = self.__page_count
-        Page.__page_count += 1
+        self.page_id = Page.page_count
+        self.logical_address = self.page_count
+        Page.page_count += 1
         self.loaded = False 
         self.memory_address = None # Cuando se carga la pagina en memoria se asigna el marco respectivo.
         self.disk_address = None 
@@ -50,7 +50,7 @@ class Pointer:
         self.pages: list[Page] = pages
     def get_internal_fragmentation(self):
         # Calcular la fragmentación interna
-        total_page_size = (len(self.pages) * 4) * 1024  
+        total_page_size = len(self.pages) * 4096  
         internal_fragmentation = total_page_size - self.size
         return internal_fragmentation
     def __str__(self):
@@ -62,11 +62,13 @@ class Pointer:
 
 class MemoryMap:
     def __init__(self):
-        self.__pointer_count = 1
+        self.pointer_count = 1
         self.pointers: dict[int, Pointer] = {}
     def add_pointer(self, pointer: Pointer):
-        self.pointers[self.__pointer_count] = pointer
-        self.__pointer_count += 1
+        # print(f"Se asignó el puntero {self.pointer_count} al proceso {pointer.pid} con las páginas {[page.page_id for page in pointer.pages]}\n")
+        # input("")
+        self.pointers[self.pointer_count] = pointer
+        self.pointer_count += 1
         return 0
     def delete_pointer(self, pointer_id: int):
         del self.pointers[pointer_id]
@@ -77,7 +79,7 @@ class MemoryMap:
             result += f"  Pointer ID {pointer_id}:\n    {pointer}\n"
         return result
 
-oldest_page_index = 0
+
 class PageReplacementStrategy(ABC):
     @abstractmethod
     def replace(self, frames:list[Page], page: Page):
@@ -173,7 +175,7 @@ class FIFOPageReplacementStrategy(PageReplacementStrategy):
         # FIFO no necesita marcar páginas
         pass
 
-last_used_index:int = 0
+
 class MRUPageReplacementStrategy(PageReplacementStrategy):
     def replace(self, frames: list[Page]):
         global last_used_index
@@ -220,8 +222,7 @@ class SecondChancePageReplacementStrategy(PageReplacementStrategy):
         # Cuando una página es accedida (hit), pon su bit de referencia en 1
         if page.memory_address is not None:
             self.reference_bits[page.memory_address] = 1
-disk:list[Page] = []
-disk_used_spaces = 0
+
 class Memory:
     def __init__(self, replacement_strategy: PageReplacementStrategy, frame_amount:int):
         self.clock: Clock = Clock()
@@ -246,6 +247,7 @@ class Memory:
             self.replacement_strategy.mark_page(page)
             last_used_index = page.memory_address
             page.load_time += 1
+            #print(f"Hit: Página {page.page_id} del proceso {page.pid} ya está en memoria (frame {page.memory_address}). Se registra un hit.")
             return
 
         frame_to_use:int = -1
@@ -309,23 +311,22 @@ class MMU:
     # Retorna puntero logico (Pointer) con las paginas necesarias para almacenar la cantidad de bytes (size)
     # que se requieren. Todas las paginas pertenecientes al puntero, se cargan en memoria por defecto.
     def new(self, pid: int, size: int):
-        pages_needed:int
-        if (size == 1024):
-            pages_needed = 1
-        else:
-            pages_needed = (size // 1024) + 1
+        pages_needed = (size // 4096) + (1 if size % 4096 != 0 else 0)
         pages_created = []
         for i in range(pages_needed):
             page = Page(pid)
             pages_created.append(page)
             self.ram.load_page(page)
-        
 
+        pointer_id = len(self.memory_map.pointers) + 1
+        page_ids = [page.page_id for page in pages_created]
+        # print(f"Se asignó el puntero {pointer_id} al proceso {pid} con las páginas {page_ids}")
+
+        # input("")
         # Se agrega el puntero junto a sus paginas al memory_map
         pointer = Pointer(pid, size, pages_created)
         self.memory_map.add_pointer(pointer)
         return 0
-    
     def use(self, ptr: int):
         pointers = self.memory_map.pointers
         if ptr not in pointers:
@@ -339,6 +340,7 @@ class MMU:
         
         return 0
     def delete(self, ptr: int):
+        #print(f"Deleting pointer {ptr}")
         pointers = self.memory_map.pointers
         if ptr not in pointers:
             print(f"Pointer {ptr} doesn't exist.")
@@ -356,7 +358,10 @@ class MMU:
         # Borra el puntero del diccionario de punteros
         parser.pointer_to_pages.pop(ptr, None)
 
+        # print(f"Pointer {ptr} deleted from memory map.")
         # Borra el puntero del diccionario de procesos
+
+        # print(f"Before deleting pointer {ptr} from process {process}: {parser.processes_to_pointers[process]}")
         parser.processes_to_pointers[process].remove(ptr)
 
         # Borra el puntero del diccionario de procesos
@@ -364,15 +369,22 @@ class MMU:
             if ptr in pointers:
                 pointers.remove(ptr)
                 break
-        print(f"Pointer {ptr} deleted.")
+        
+        # print(f"After deleting pointer {ptr} from process {process}: {parser.processes_to_pointers[process]}")
+
+        #input("")
+        #print(f"Pointer {ptr} deleted.")
         return 0
     def kill(self, pid: int):
+        # print(f"Killing process {pid}")
         # PID no existe, puede que ya haya sido eliminado (kill)
         if pid not in parser.processes_to_pointers:
             print(f"Pid {pid} doesn't exist.")
             return -1
-        
         # Elimina cada puntero de memoria
+        # print(f"Deleting pointers for process {pid}: {parser.processes_to_pointers[pid]}")
+        # print(parser.processes_to_pointers[pid])
+        # input("")
         for ptr in parser.processes_to_pointers[pid]:
             self.delete(ptr)
 
@@ -427,18 +439,67 @@ class MMU:
     def get_total_process_amount(self):
         return len(self.memory_map.pointers)
     
+    def get_pages_info_and_stats(self):
+        pages_info = []
+        for pointer_id, pointer in self.memory_map.pointers.items():
+            for page in pointer.pages:
+                pages_info.append({
+                    "PAGE ID": page.page_id,
+                    "PID": page.pid,
+                    "LOADED": 'X' if page.loaded else '',
+                    "L-ADDR": page.logical_address,
+                    "M-ADDR": page.memory_address if page.memory_address is not None else '',
+                    "D-ADDR": page.disk_address if page.disk_address is not None else '',
+                    "LOADED-T": f"{page.load_time}s" if page.load_time > 0 else '',
+                    "MARK": page.mark
+                })
+
+        stats = {
+            "Processes": self.get__active_process_amount(),
+            "Sim-Time": f"{self.ram.clock.total_time}s",
+            "RAM KB": self.get_kb_used_in_ram(),
+            "RAM %": f"{self.real_ram_percentage():.2f}%",
+            "V-RAM KB": self.get_kb_used_in_disk(),
+            "V-RAM %": f"{self.real_disk_percentage():.2f}%",
+            "PAGES LOADED": self.get_loaded_amount(),
+            "PAGES UNLOADED": self.get_unloaded_amount(),
+            "Thrashing": f"{self.ram.clock.thrashing}s",
+            "Thrashing %": f"{self.get_percentage_of_thrashing():.2f}%",
+            "Fragmentación": f"{self.get_internal_fragmentation_in_kb():.2f} KB",
+            "Hits": self.ram.clock.hits,
+            "Faults": self.ram.clock.faults,
+            "Frames": self.ram.frames
+        }
+        return pages_info, stats
+
     def __str__(self):
         result = "MMU State:\n"
         result += str(self.ram) + "\n"
         result += str(self.memory_map)
         return result
-    
 
+# Índice del último frame usado en la memoria RAM (para MRU)
+last_used_index: int = 0
+# Lista que simula el disco para almacenar páginas que no están en RAM
+disk: list[Page] = []
+# Espacios usados actualmente en el disco (cantidad de páginas en disco)
+disk_used_spaces = 0
+# Cantidad total de marcos (frames) disponibles en la memoria RAM
 frame_amount = 100
+# Índice del frame más antiguo en RAM (para FIFO)
+oldest_page_index = 0
+
+# Instancia global del parser para acceder a instrucciones y estructuras auxiliares
+parser: Parser
 def main(replacement_strategy_class, instruction_file):
-    global parser
+    global parser, oldest_page_index, last_used_index, disk_used_spaces
+    states:list[MMU] = []
     parser = Parser()
     parser.readFile(instruction_file)
+    oldest_page_index = 0
+    last_used_index = 0
+    disk_used_spaces = 0
+    Page.page_count = 1
 
     ram = Memory(replacement_strategy_class(), frame_amount)
     mmu = MMU(ram, MemoryMap())
@@ -457,40 +518,17 @@ def main(replacement_strategy_class, instruction_file):
                 mmu.kill(instruction.arguments[0])
             case _:
                 print(f"Error: Instruction {instruction.instruction} with arguments: {instruction.arguments} is not valid.")
+        # yield mmu
+        #input("")
 
-    pages_info = []
-    for pointer_id, pointer in mmu.memory_map.pointers.items():
-        for page in pointer.pages:
-            pages_info.append({
-                "PAGE ID": page.page_id,
-                "PID": page.pid,
-                "LOADED": 'X' if page.loaded else '',
-                "L-ADDR": page.logical_address,
-                "M-ADDR": page.memory_address if page.memory_address is not None else '',
-                "D-ADDR": page.disk_address if page.disk_address is not None else '',
-                "LOADED-T": f"{page.load_time}s" if page.load_time > 0 else '',
-                "MARK": page.mark
-            })
+    pages_info, stats = mmu.get_pages_info_and_stats()
 
-    stats = {
-        "Processes": mmu.get__active_process_amount(),
-        "Sim-Time": f"{ram.clock.total_time}s",
-        "RAM KB": mmu.get_kb_used_in_ram(),
-        "RAM %": f"{mmu.real_ram_percentage():.2f}%",
-        "V-RAM KB": mmu.get_kb_used_in_disk(),
-        "V-RAM %": f"{mmu.real_disk_percentage():.2f}%",
-        "PAGES LOADED": mmu.get_loaded_amount(),
-        "PAGES UNLOADED": mmu.get_unloaded_amount(),
-        "Thrashing": f"{ram.clock.thrashing}s",
-        "Thrashing %": f"{mmu.get_percentage_of_thrashing():.2f}%",
-        "Fragmentación": f"{mmu.get_internal_fragmentation_in_kb():.2f} KB"
-    }
 
-    print("Pointers actuales en el sistema:")
-    for pointer_id, pointer in mmu.memory_map.pointers.items():
-        print(f"Pointer ID {pointer_id}:")
-        print(pointer)
-        print("-" * 40)
+    # print("Pointers actuales en el sistema:")
+    # for pointer_id, pointer in mmu.memory_map.pointers.items():
+    #     print(f"Pointer ID {pointer_id}:")
+    #     print(pointer)
+    #     print("-" * 40)
     print(f"Hits: {ram.clock.hits}")
     print(f"Faults: {ram.clock.faults}")
     print(f"Sim-Time: {ram.clock.total_time}s")
@@ -505,10 +543,10 @@ def main(replacement_strategy_class, instruction_file):
     print(f"KB usados en disco: {mmu.get_kb_used_in_disk():.2f} KB")
     print(f"Porcentaje real de RAM usada: {mmu.real_ram_percentage():.2f}%")
     print(f"Porcentaje real de disco usado: {mmu.real_disk_percentage():.2f}%")
-    print(f"Fragmentación interna total: {mmu.get_internal_fragmentation_in_kb()} bytes")
+    print(f"Fragmentación interna total: {mmu.get_internal_fragmentation_in_kb():.2f} kb")
 
     return pages_info, stats
 
 
 
-#main()
+#main(OptimalPageReplacementStrategy, "generatedInstructions.txt")
