@@ -192,11 +192,10 @@ class StartWindow(tk.Tk):
         seed = self.seed_var.get()
         P = int(self.p_var.get())
         N = int(self.n_var.get())
-        # filename = self.file_var.get()
-        filename = "generatedInstructions.txt"
+        filename = self.file_var.get()
 
         if not filename:
-            InstructionGenerator.generateInstructions(P, N, seed)
+            InstructionGenerator.generateInstructions(P, N, seed, maxSize=32768)  
             filename = "generatedInstructions.txt"
 
         parser = Parser.Parser()

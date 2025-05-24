@@ -18,6 +18,9 @@ def generateInstructions(numProcesses: int,
                          numOperations: int,
                          seed: int,
                          maxSize: int = 100) -> tuple[list[str], dict[int, list[int]]]:
+    if seed is None:
+        # Si no se proporciona semilla, usa un número aleatorio como semilla
+        seed = random.randint(0, 2**32 - 1)
     initSeed(seed)
     #Tabla de símbolos: mapea PID a lista de punteros asignados
     symbolTable = {pid: [] for pid in range(1, numProcesses + 1)}
